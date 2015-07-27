@@ -1,0 +1,34 @@
+{
+  "name": "sc-weather",
+  "version": "1.0.0",
+  "description": "POST handler for openweathermap API -> Slack",
+  "main": "index.js",
+  "scripts": {
+    "test": "weathertest"
+  },
+    "dependencies": {
+    "pg": "4.x",
+    "ejs": "^2.3.1",
+    "express": "~4.9.x",
+    "cool-ascii-faces": "~1.3.x"
+  },
+  "engines": {
+    "node": "0.12.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/heroku/sc-weather.git"
+  },
+  "keywords": [
+    "weather",
+    "sc",
+    "node",
+    "openweathermap"
+  ],
+  "author": "ceiland",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/heroku/sc-weather/issues"
+  },
+  "homepage": "https://github.com/heroku/sc-weather#readme"
+}
