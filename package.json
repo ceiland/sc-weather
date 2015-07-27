@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "express": "~4.9.x",
-    "body-parser": "~1.13.2"
+    "body-parser": "~1.13.x"
   },
   "engines": {
     "node": "0.12.2"

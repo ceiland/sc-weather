@@ -11,6 +11,6 @@ app.listen(app.get('port'), function () {
 });
 
 app.post('/', function (req, res) {
-    var zip = (req.body['text'][0] || 'NULL')
+    var zip = req.body
     res.send('You requested weather for zip: ' + zip)
 });
