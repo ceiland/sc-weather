@@ -8,7 +8,9 @@
   },
   "dependencies": {
     "express": "~4.9.x",
-    "body-parser": "~1.13.x"
+    "body-parser": "~1.13.x",
+    "fs": "~0.0.x",
+    "regex": "~0.1.1"
   },
   "engines": {
     "node": "0.12.2"
