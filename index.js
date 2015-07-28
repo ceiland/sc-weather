@@ -114,8 +114,8 @@ app.post('/', function (req, res) {
                         cloudPercentage = weatherData['clouds']['all'];
 
                         var outputMain = 'Weather for ' + cityName + ', ' + cityCountry + ' (' + cityLat + ', ' + cityLon + ')\n'
-                        var outputTemperature = 'Temperature: ' + currentTemp + '%C2%B0F (' + lowTemp + ' / ' + highTemp + ')\n'
-                        var outputConditions = 'Conditions: ' + weatherConditions + ')';
+                        var outputTemperature = 'Temperature: ' + currentTemp + ' F (' + lowTemp + ' / ' + highTemp + ')\n'
+                        var outputConditions = 'Conditions: ' + weatherConditions;
 
                         res.send(outputMain + outputTemperature + outputConditions);
                         break;
