@@ -1,0 +1,30 @@
+{
+"coord":{
+"lon":-122.08,"lat":37.39},"weather":[{
+"id":800,"main":"Clear","description":"sky is clear","icon":"02d"}],"base":"cmc stations","main":{
+"temp":303.7,"pressure":1013,"humidity":51,"temp_min":297.15,"temp_max":309.26},"wind":{
+"speed":7.7,"deg":350},"clouds":{
+"all":5},"dt":1438035622,"sys":{
+"type":1,"id":451,"message":0.012,"country":"US","sunrise":1438002554,"sunset":1438053595},"id":5375480,"name":"Mountain View","cod":200}
+
+{
+"coord":{
+	"lon":-117.85,"lat":33.79
+	},
+
+"weather":
+[
+	{
+		"id":800,
+		"main":"Clear",
+		"description":"sky is clear",
+		"icon":"01d"
+	}
+],
+	"base":"cmc stations",
+	"main":{
+	"temp":300.32,"pressure":1013,"humidity":64,"temp_min":295.93,"temp_max":304.15},"wind":{
+"speed":5.1,"deg":210,"gust":7.2},"clouds":{
+"all":1},"dt":1438038565,"sys":{
+"type":1,"id":485,"message":0.0141,"country":"US","sunrise":1438002019,"sunset":1438052104},"id":5379513,"name":"Orange","cod":200}
+

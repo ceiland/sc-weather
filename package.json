@@ -9,7 +9,8 @@
   "dependencies": {
     "express": "~4.9.x",
     "body-parser": "~1.13.x",
-    "fs": "~0.0.x"
+    "fs": "~0.0.x",
+    "http": "~0.0.x"
   },
   "engines": {
     "node": "0.12.2"
