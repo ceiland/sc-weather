@@ -22,7 +22,19 @@ app.post('/', function (req, res) {
     var fullUserName = req.body.user_name + '@' + req.body.team_domain
     var weatherData = ''
 
-    var currentTemp, lowTemp, highTemp, weatherConditions, humidityPercentage, windSpeed, cloudPercentage, cityName, cityLat, cityLon, cityCountry = ''
+    var weather = {
+        currentTemp: '',
+        lowTemp: '',
+        highTemp: '',
+        weatherConditions: '',
+        humidityPercentage: '',
+        windSpeed: '',
+        cloudPercentage: '',
+        cityName: '',
+        cityLat: '',
+        cityLon: '',
+        cityCountry: ''
+    }
 
     // Filter requests with bad tokens
     if (!tokenCheck.test(token)) {
@@ -91,31 +103,30 @@ app.post('/', function (req, res) {
                 })*/
 
                 // Array Method
-                // TODO: clean this shit up
                 weatherData = JSON.parse(weatherData)
 
-                switch (weatherData['cod']) {
-                    case 404:
+                switch (weatherData['cod'].toString()) {
+                    case '404':
                         res.send(weatherData['message']);
                         break;
-                    case 200:
-                        cityName = weatherData['name'];
-                        cityLat = weatherData['coord']['lat'];
-                        cityLon = weatherData['coord']['lon'];
-                        cityCountry = weatherData['sys']['country']
+                    case '200':
+                        weather.cityName = weatherData['name'];
+                        weather.cityLat = weatherData['coord']['lat'];
+                        weather.cityLon = weatherData['coord']['lon'];
+                        weather.cityCountry = weatherData['sys']['country']
 
-                        weatherConditions = weatherData['weather'][0]['main'];
-                        currentTemp = Math.round(weatherData['main']['temp']);
-                        lowTemp = Math.round(weatherData['main']['temp_min']);
-                        highTemp = Math.round(weatherData['main']['temp_max']);
-                        humidityPercentage = weatherData['main']['humidity'];
+                        weather.weatherConditions = weatherData['weather'][0]['main'];
+                        weather.currentTemp = Math.round(weatherData['main']['temp']);
+                        weather.lowTemp = Math.round(weatherData['main']['temp_min']);
+                        weather.highTemp = Math.round(weatherData['main']['temp_max']);
+                        weather.humidityPercentage = weatherData['main']['humidity'];
 
-                        windSpeed = weatherData['wind']['speed'];
-                        cloudPercentage = weatherData['clouds']['all'];
+                        weather.windSpeed = weatherData['wind']['speed'];
+                        weather.cloudPercentage = weatherData['clouds']['all'];
 
-                        var outputMain = 'Weather for ' + cityName + ', ' + cityCountry + ' (' + cityLat + ', ' + cityLon + ')\n'
-                        var outputTemperature = 'Temperature: ' + currentTemp + ' F (' + lowTemp + ' / ' + highTemp + ')\n'
-                        var outputConditions = 'Conditions: ' + weatherConditions;
+                        var outputMain = 'Weather for ' + weather.cityName + ', ' + weather.cityCountry + ' (' + weather.cityLat + ', ' + weather.cityLon + ')\n'
+                        var outputTemperature = 'Temperature: ' + weather.currentTemp + ' F (' + weather.lowTemp + ' / ' + weather.highTemp + ')\n'
+                        var outputConditions = 'Conditions: ' + weather.weatherConditions;
 
                         res.send(outputMain + outputTemperature + outputConditions);
                         break;
@@ -133,8 +144,6 @@ app.post('/', function (req, res) {
 
         request.end()
     }
-
-
 
 });
 
