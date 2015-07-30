@@ -71,7 +71,7 @@ app.post('/', function (req, res) {
 
     if (!zipCheck.test(slackData.zip)) {
         console.log('(' + slackData.fullUserName + ') just asked for weather info for INVALID zip code: ' + slackData.zip)
-        console.dir(res.body)
+        console.dir(req.body)
         res.send('Hi! I am currently hacking you. \nThe value you just sent me is NOT A ZIP CODE: ' + slackData.zip)
     }
     else {
