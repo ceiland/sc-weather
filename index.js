@@ -58,7 +58,7 @@ app.post('/', function (req, res) {
     var attachmentVars = [];
 
     var botData = {
-        channel: '#secrets',
+        channel: '#general',
         username: 'weatherbot',
         attachments: attachmentVars
     }
