@@ -56,6 +56,16 @@ app.post('/', function (req, res) {
     }
 
     var attachmentVars = [];
+    attachmentVars.push(
+    {
+    fallback: '' + slackData.user_name + '\'s weather data for ' + weatherData.cityName + ', ' + weatherData.cityCountry + '(' + weatherData.cityLat + ', ' + weatherData.cityLon + ')',
+    pretext: '' + slackData.user_name + '\'s weather data for ' + weatherData.cityName + ', ' + weatherData.cityCountry + '(' + weatherData.cityLat + ', ' + weatherData.cityLon + ')',
+    title: 'Temp: ' + weatherData.currentTemp + ' (' + weatherData.highTemp + ' / ' + weatherdata.lowTemp + ')',
+    title_link: 'http://openweathermap.org/city/' + weatherData.cityID,
+    text: '' + weatherData.weatherConditions + '\n' + weatherData.cloudPercentage + '% cloudy (' + weatherData.humidityPercentage + '% humidity)',
+    color: '#7CD197'
+    }
+    )
 
     var botData = {
         channel: '#secrets',
@@ -94,14 +104,14 @@ app.post('/', function (req, res) {
         var weatherPostOptions = {
             host: 'api.openweathermap.org',
             port: 80,
-            path: '/data/2.5/weather?zip=' + slackData.zip + ',us&units=imperial&APPID=' + process.env.APPID,
+            path: '/data/2.5/weather?zip=' + slackData.zip + ',us&units=imperial&APPID=' + process.env.OPENWEATHER_APPID,
             method: 'POST'
         }
 
         var slackPostOptions = {
             host: 'hooks.slack.com',
-            port: 443,
-            path: '/services/' + process.env.SLACK_TEAM_ID + '/' + process.env.SLACK_HOOK_BOT_USER_ID + '/' + process.env.SLACK_HOOK_API_TOKEN,
+            port: 80,
+            path: '/services/' + process.env.SLACK_TEAM_ID + '/' + process.env.SLACK_HOOK_BOT_USER + '/' + process.env.SLACK_HOOK_API_TOKEN,
             method: 'POST'
         }
 
@@ -150,10 +160,10 @@ app.post('/', function (req, res) {
                         weatherData.cityName = weatherPostData['name'];
                         weatherData.cityLat = weatherPostData['coord']['lat'];
                         weatherData.cityLon = weatherPostData['coord']['lon'];
-                        weatherData.cityCountry = weatherPostData['sys']['country']
-                        weatherData.cityID = weatherPostData['id'];
+                        weatherData.cityCountry = weatherPostData['sys']['country'];
+                        weatherdata.cityID = weatherPostData['id'];
 
-                        weatherData.weatherConditions = toTitleCase(weatherPostData['weather'][0]['description']);
+                        weatherData.weatherConditions = weatherPostData['weather'][0]['main'];
                         weatherData.currentTemp = Math.round(weatherPostData['main']['temp']);
                         weatherData.lowTemp = Math.round(weatherPostData['main']['temp_min']);
                         weatherData.highTemp = Math.round(weatherPostData['main']['temp_max']);
@@ -162,31 +172,16 @@ app.post('/', function (req, res) {
                         weatherData.windSpeed = weatherPostData['wind']['speed'];
                         weatherData.cloudPercentage = weatherPostData['clouds']['all'];
 
-                        // TODO: Make quiet output setting?
-                        //var outputMain = 'Weather for ' + weatherData.cityName + ', ' + weatherData.cityCountry + ' (' + weatherData.cityLat + ', ' + weatherData.cityLon + ')\n'
-                        //var outputTemperature = 'Temperature: ' + weatherData.currentTemp + ' F (' + weatherData.lowTemp + ' / ' + weatherData.highTemp + ')\n'
-                        //var outputConditions = 'Conditions: ' + weatherData.weatherConditions;
-                        //res.send(outputMain + outputTemperature + outputConditions);
+                        var outputMain = 'Weather for ' + weatherData.cityName + ', ' + weatherData.cityCountry + ' (' + weatherData.cityLat + ', ' + weatherData.cityLon + ')\n'
+                        var outputTemperature = 'Temperature: ' + weatherData.currentTemp + ' F (' + weatherData.lowTemp + ' / ' + weatherData.highTemp + ')\n'
+                        var outputConditions = 'Conditions: ' + weatherData.weatherConditions;
 
-                        attachmentVars.push(
-                        {
-                            fallback: '' + slackData.user_name + '\'s weather data for ' + weatherData.cityName + ', ' + weatherData.cityCountry + ' (' + weatherData.cityLat + ', ' + weatherData.cityLon + ')',
-                            pretext: '' + slackData.user_name + '\'s weather data for ' + weatherData.cityName + ', ' + weatherData.cityCountry + ' (' + weatherData.cityLat + ', ' + weatherData.cityLon + ')',
-                            title: 'Temp: ' + weatherData.currentTemp + '\u00b0F (' + weatherData.lowTemp + '\u00b0F / ' + weatherData.highTemp + '\u00b0F)',
-                            title_link: 'http://openweathermap.org/city/' + weatherData.cityID,
-                            text: '' + weatherData.weatherConditions + '\n' + weatherData.cloudPercentage + '% Cloudy (' + weatherData.humidityPercentage + '% Humidity)',
-                            color: '#7CD197'
+                        res.send(outputMain + outputTemperature + outputConditions);
+
+                        var botPost = http.request(slackPostOptions, function (botResponse) {
+                            botPost.write(JSON.stringify(botData))
+                            botPost.end()
                         });
-
-                        var botPost = https.request(slackPostOptions, function (botResponse) {
-                        });
-
-                        botPost.on('error', function (e) {
-                            console.log('Webhook Post Error: ' + e.message)
-                        });
-
-                        botPost.write(JSON.stringify(botData))
-                        botPost.end()
 
                         break;
                     default:
@@ -209,7 +204,3 @@ app.post('/', function (req, res) {
 app.get('/', function (req, res) {
     res.send('Get out')
 });
-
-function toTitleCase(str) {
-    return str.replace(/\w\S*/g, function (txt) { return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase(); });
-}
