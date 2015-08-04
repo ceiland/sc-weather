@@ -20,6 +20,8 @@ app.post('/', function (req, res) {
     var geocodeResponseData = ''
     var attachmentVars = [];
 
+    var geocodeRequestStatus = 0;
+
     var slackData = {
         token: req.body.token,
         team_id: req.body.team_id,
@@ -121,9 +123,10 @@ app.post('/', function (req, res) {
     res.send('Hi! You (' + slackData.fullUserName + ') just asked for weather info in zip code: ' + slackData.zip)
     */
 
-    console.log('(' + slackData.fullUserName + ') just asked for weather info: ')
+    console.log('(' + slackData.fullUserName + ') just asked for weather info for zip code: ' + slackData.zip)
 
     var geocodeRequest = https.request(geocodePostOptions, function (geocodeResponse) {
+
     	geocodeResponse.setEncoding('utf8')
 
     	geocodeResponse.on('data', function (chunk) {
@@ -143,69 +146,7 @@ app.post('/', function (req, res) {
     				break;
     		};
 
-
-    		var weatherRequest = http.request(weatherPostOptions, function (weatherResponse) {
-    		    weatherResponse.setEncoding('utf8');
-
-    		    weatherResponse.on('data', function (chunk) {
-    		        weatherPostData += chunk
-    		    });
-
-    		    weatherResponse.on('end', function () {
-    		        weatherPostData = JSON.parse(weatherPostData)
-
-    		        switch (weatherPostData['cod'].toString()) {
-    		            case '404':
-    		                res.send(weatherPostData['message']);
-    		                break;
-    		            case '200':
-    		                weatherData.cityName = weatherPostData['name'];
-    		                weatherData.cityLat = weatherPostData['coord']['lat'];
-    		                weatherData.cityLon = weatherPostData['coord']['lon'];
-    		                weatherData.cityCountry = weatherPostData['sys']['country']
-    		                weatherData.cityID = weatherPostData['id'];
-
-    		                weatherData.weatherConditions = toTitleCase(weatherPostData['weather'][0]['description']);
-    		                weatherData.currentTemp = Math.round(weatherPostData['main']['temp']);
-    		                weatherData.lowTemp = Math.round(weatherPostData['main']['temp_min']);
-    		                weatherData.highTemp = Math.round(weatherPostData['main']['temp_max']);
-    		                weatherData.humidityPercentage = weatherPostData['main']['humidity'];
-
-    		                weatherData.windSpeed = weatherPostData['wind']['speed'];
-    		                weatherData.cloudPercentage = weatherPostData['clouds']['all'];
-
-    		                attachmentVars.push(
-                            {
-                                fallback: '' + slackData.user_name + '\'s weather data for ' + geocodeData.formattedAddress + ' (' + weatherData.cityLat + ', ' + weatherData.cityLon + ')',
-                                pretext: '' + slackData.user_name + '\'s weather data for ' + geocodeData.formattedAddress + ' (' + weatherData.cityLat + ', ' + weatherData.cityLon + ')',
-                                title: 'Temp: ' + weatherData.currentTemp + '\u00b0F (' + weatherData.lowTemp + '\u00b0F / ' + weatherData.highTemp + '\u00b0F)',
-                                title_link: 'http://openweathermap.org/city/' + weatherData.cityID,
-                                text: '' + weatherData.weatherConditions + '\n' + weatherData.cloudPercentage + '% Cloudy (' + weatherData.humidityPercentage + '% Humidity)',
-                                color: '#7CD197'
-                            });
-
-    		                var botPost = https.request(slackPostOptions, function (botResponse) {
-    		                });
-
-    		                botPost.on('error', function (e) {
-    		                    console.log('Webhook Post Error: ' + e.message)
-    		                });
-
-    		                botPost.write(JSON.stringify(botData))
-    		                botPost.end()
-
-    		                break;
-    		            default:
-    		                res.send('Unknown error');
-    		        };
-    		    });
-    		});
-
-    		weatherRequest.on('error', function (e) {
-    		    console.log('Request Error: ' + e.message)
-    		});
-
-    		weatherRequest.end()
+			geocodeRequestStatus = 1;
 
         });
     });
@@ -216,7 +157,102 @@ app.post('/', function (req, res) {
 
     geocodeRequest.end();
 
+    var weatherRequest = http.request(weatherPostOptions, function (weatherResponse) {
+        /* Debug
+        console.log('\nBEGIN HTTP POST\n----------------------');
+        console.log('STATUS:\t' + weatherResponse.statusCode);
+        console.log('HEADERS:\t' + JSON.stringify(weatherResponse.headers));
+        */
 
+        weatherResponse.setEncoding('utf8');
+
+        weatherResponse.on('data', function (chunk) {
+            weatherPostData += chunk
+        });
+
+        weatherResponse.on('end', function () {
+            /* Debug
+            console.log('END HTTP POST\n------------------------\n');
+            */
+
+            // Iterator method
+            /*JSON.parse(weatherPostData, function (key, val) {
+                switch (key) {
+                    case 'temp':
+                        console.log('Current Temp: ' + val);
+                        break;
+                    case 'temp_min':
+                        console.log('Lo Temp: ' + val);
+                        break;
+                    case 'temp_max':
+                        console.log('Hi Temp: ' + val);
+                        break;
+                }
+                console.log('\"' + key + '\" : ' + val)
+            })*/
+
+            // Array Method
+            weatherPostData = JSON.parse(weatherPostData)
+
+            switch (weatherPostData['cod'].toString()) {
+                case '404':
+                    res.send(weatherPostData['message']);
+                    break;
+                case '200':
+                    weatherData.cityName = weatherPostData['name'];
+                    weatherData.cityLat = weatherPostData['coord']['lat'];
+                    weatherData.cityLon = weatherPostData['coord']['lon'];
+                    weatherData.cityCountry = weatherPostData['sys']['country']
+                    weatherData.cityID = weatherPostData['id'];
+
+                    weatherData.weatherConditions = toTitleCase(weatherPostData['weather'][0]['description']);
+                    weatherData.currentTemp = Math.round(weatherPostData['main']['temp']);
+                    weatherData.lowTemp = Math.round(weatherPostData['main']['temp_min']);
+                    weatherData.highTemp = Math.round(weatherPostData['main']['temp_max']);
+                    weatherData.humidityPercentage = weatherPostData['main']['humidity'];
+
+                    weatherData.windSpeed = weatherPostData['wind']['speed'];
+                    weatherData.cloudPercentage = weatherPostData['clouds']['all'];
+
+                    // TODO: Make quiet output setting?
+                    //var outputMain = 'Weather for ' + weatherData.cityName + ', ' + weatherData.cityCountry + ' (' + weatherData.cityLat + ', ' + weatherData.cityLon + ')\n'
+                    //var outputTemperature = 'Temperature: ' + weatherData.currentTemp + ' F (' + weatherData.lowTemp + ' / ' + weatherData.highTemp + ')\n'
+                    //var outputConditions = 'Conditions: ' + weatherData.weatherConditions;
+                    //res.send(outputMain + outputTemperature + outputConditions);
+
+                    attachmentVars.push(
+                    {
+                        fallback: '' + slackData.user_name + '\'s weather data for ' + geocodeData.formattedAddress + ' (' + weatherData.cityLat + ', ' + weatherData.cityLon + ')',
+                        pretext: '' + slackData.user_name + '\'s weather data for ' + geocodeData.formattedAddress + ' (' + weatherData.cityLat + ', ' + weatherData.cityLon + ')',
+                        title: 'Temp: ' + weatherData.currentTemp + '\u00b0F (' + weatherData.lowTemp + '\u00b0F / ' + weatherData.highTemp + '\u00b0F)',
+                        title_link: 'http://openweathermap.org/city/' + weatherData.cityID,
+                        text: '' + weatherData.weatherConditions + '\n' + weatherData.cloudPercentage + '% Cloudy (' + weatherData.humidityPercentage + '% Humidity)',
+                        color: '#7CD197'
+                    });
+
+                    var botPost = https.request(slackPostOptions, function (botResponse) {
+                    });
+
+                    botPost.on('error', function (e) {
+                        console.log('Webhook Post Error: ' + e.message)
+                    });
+
+                    botPost.write(JSON.stringify(botData))
+                    botPost.end()
+
+                    break;
+                default:
+                    res.send('Unknown error');
+            };
+
+        });
+    });
+
+    weatherRequest.on('error', function (e) {
+        console.log('Request Error: ' + e.message)
+    });
+
+    weatherRequest.end()
 
 });
 
