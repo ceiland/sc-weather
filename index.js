@@ -62,7 +62,7 @@ app.post('/', function (req, res) {
     }
 
     var botData = {
-        channel: '#secrets',
+        channel: '#general',
         username: 'weatherbot',
         attachments: attachmentVars
         }
