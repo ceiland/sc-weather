@@ -1,237 +1,200 @@
-var express = require('express');
+﻿var express = require('express');
 var bodyParser = require('body-parser');
 var http = require('http');
 var https = require('https');
+var Q = require('q');
+
+var weatherPostOptions = {
+    host: process.env.WEATHER_HOST,
+    port: 80,
+    path: process.env.WEATHER_PATH,
+    method: 'POST'
+}
+
+var timezonePostOptions = {
+    host: process.env.TIMEZONE_HOST,
+    port: 443,
+    path: process.env.TIMEZONE_PATH,
+    method: 'POST'
+}
+
+var geocodePostOptions = {
+    host: process.env.GEOCODE_HOST,
+    port: 443,
+    path: process.env.GEOCODE_PATH,
+    method: 'GET'
+}
+
+var slackPostOptions = {
+    host: 'hooks.slack.com',
+    port: 443,
+    path: '/services/' + process.env.SLACK_TEAM_ID + '/' + process.env.SLACK_HOOK_BOT_USER_ID + '/' + process.env.SLACK_HOOK_API_TOKEN,
+    method: 'POST'
+}
+
+var httpReq = function (opts) {
+    var deferred = Q.defer();
+    var resData = '';
+    var req = http.request(opts, function (res) {
+        res.setEncoding('utf8');
+
+        res.on('data', function (chunk) {
+            resData += chunk;
+        });
+
+        res.on('end', function () {
+            resData = JSON.parse(resData);
+            deferred.resolve(resData);
+        });
+    });
+
+    req.on('error', function (e) {
+        console.log('Request Error: ' + e.message)
+    });
+
+    req.end();
+
+    return deferred.promise;
+};
+
+var httpsReq = function (opts) {
+    var deferred = Q.defer();
+    var resData = '';
+    var req = https.request(opts, function (res) {
+        res.setEncoding('utf8');
+
+        res.on('data', function (chunk) {
+            resData += chunk;
+        });
+
+        res.on('end', function () {
+            resData = JSON.parse(resData);
+            deferred.resolve(resData);
+        });
+    });
+
+    req.on('error', function (e) {
+        console.log('Request Error: ' + e.message)
+    });
+
+    req.end();
+
+    return deferred.promise;
+};
 
 var app = express();
-
-var zipCheck = new RegExp(/^\d{5}$/);
-var tokenCheck = new RegExp('' + process.env.SLACK_SLASH_API_TOKEN);
-
 app.set('port', (process.env.PORT || 9001));
-app.use(bodyParser.urlencoded({extended:false}));
+app.use(bodyParser.urlencoded({ extended: false }));
 
 app.listen(app.get('port'), function () {
     console.log('Now listening on port', app.get('port'))
 });
 
-app.post('/', function (req, res) {
-    var weatherPostData = ''
-    var geocodeResponseData = ''
-    var attachmentVars = [];
-
-    var slackData = {
-        token: req.body.token,
-        team_id: req.body.team_id,
-        team_domain: req.body.team_domain,
-        channel_id: req.body.channel_id,
-        channel_name: req.body.channel_name,
-        user_id: req.body.user_id,
-        user_name: req.body.user_name,
-        command: req.body.command,
-        zip: req.body.text,
-        fullUserName: req.body.user_name + '@' + req.body.team_domain + ' on #' + req.body.channel_name
-    }
-
-    var weatherData = {
-        cityLat: '',
-        cityLon: '',
-        cityID: '',
-        weatherConditions: '',
-        weatherDescription: '',
-        currentTemp: '',
-        lowTemp: '',
-        highTemp: '',
-        humidityPercentage: '',
-        pressure: '',
-        windSpeed: '',
-        windDirection: '',
-        cloudPercentage: '',
-        rainfall: '',
-        snowfall: '',
-        timestamp: '',
-        sunrise: '',
-        sunset: '',
-        cityName: '',
-        cityCountry: '',
-        responseCode: ''
-    }
-
-    var geocodeData = {
-        formattedAddress: ''
-    }
+app.post('/', function (request, response) {
+    var weatherData = {};
+    var geocodeData = {};
+    var responseData = {};
+    var timezoneData = {};
 
     var botData = {
-        channel: '#general',
+        channel: '#secrets',
         username: 'weatherbot',
-        attachments: attachmentVars
-        }
-
-    var weatherPostOptions = {
-        host: 'api.openweathermap.org',
-        port: 80,
-        path: '/data/2.5/weather?zip=' + slackData.zip + ',us&units=imperial&APPID=' + process.env.APPID,
-        method: 'POST'
+        attachments: []
     }
 
-    var slackPostOptions = {
-        host: 'hooks.slack.com',
-        port: 443,
-        path: '/services/' + process.env.SLACK_TEAM_ID + '/' + process.env.SLACK_HOOK_BOT_USER_ID + '/' + process.env.SLACK_HOOK_API_TOKEN,
-        method: 'POST'
-    }
+    geocodePostOptions.path = process.env.GEOCODE_PATH + '?components=postal_code:' + request.body.text + '|country:USA&sensor=true&key=' + process.env.GEOCODE_API_TOKEN,
+    httpsReq(geocodePostOptions).then(function (geocodePostResponse) {
+        weatherPostOptions.path = process.env.WEATHER_PATH + '?zip=' + request.body.text + '&units=imperial&APPID=' + process.env.WEATHER_API_TOKEN
+        geocodeData = geocodePostResponse;
+        return httpReq(weatherPostOptions);
+    }).then(function (weatherPostResponse) {
+        timezonePostOptions.path = process.env.TIMEZONE_PATH + '?location=' + geocodeData['results'][0]['geometry']['location']['lat'] + ',' + geocodeData['results'][0]['geometry']['location']['lng'] + '&timestamp=' + weatherPostResponse['dt'] + '&key=' + process.env.TIMEZONE_API_TOKEN
+        weatherData = weatherPostResponse;
+        return httpsReq(timezonePostOptions);
+    }).then(function (timezonePostResponse) {
+        slackPostOptions.path = slackPostOptions.path
+        timezoneData = timezonePostResponse
+        switch (weatherData['cod'].toString()) {
+            case '404':
+                res.send(weatherData['message']);
+                break;
+            case '200':
+                responseData.formattedAddress = geocodeData['results'][0]['formatted_address']
+                responseData.cityLat = weatherData['coord']['lat'];
+                responseData.cityLon = weatherData['coord']['lon'];
+                responseData.cityCountry = weatherData['sys']['country']
+                responseData.cityID = weatherData['id'];
 
-    var geocodePostOptions = {
-        host: process.env.GEOCODE_HOST,
-        port: 443,
-        path: process.env.GEOCODE_PATH + '?address=' + slackData.zip + '&sensor=true&key=' + process.env.GEOCODE_API_TOKEN,
-        method: 'GET'
-    }
+                responseData.currentTime = convertToTime(weatherData['dt'], timezonePostResponse.rawOffset, timezonePostResponse.dstOffset);
 
-    var timezonePostOptions = {
-		host: process.env.TIMEZONE_HOST,
-		port: 443,
-		path: process.env.TIMEZONE_PATH + '?location=' + weatherData.cityLat + ',' + weatherData.cityLon + '&timestamp=' + weatherData.timestamp + '&key=' + process.env.TIMEZONE_API_TOKEN,
-		method: 'GET'
-    }
+                responseData.weatherConditions = toTitleCase(weatherData['weather'][0]['description']);
+                responseData.currentTemp = Math.round(weatherData['main']['temp']);
+                responseData.lowTemp = Math.round(weatherData['main']['temp_min']);
+                responseData.highTemp = Math.round(weatherData['main']['temp_max']);
+                responseData.humidityPercentage = weatherData['main']['humidity'];
+                responseData.atmosphericPressure = weatherData['main']['pressure']
+                responseData.sunrise = weatherData['main']['sunrise']
+                responseData.sunset = weatherData['main']['sunset']
 
-    // Filter requests with bad tokens
-    if (!tokenCheck.test(slackData.token)) {
-        console.warn('WARNING: Bad POST body (' + req.ip + ')')
-        console.warn('\t\tIncorrect Slack API token: ' + slackData.token)
-        console.warn('\t\tCommand Payload: ')
-        console.dir(req.body)
-        return 0
-    }
+                responseData.windSpeed = weatherData['wind']['speed'];
+                responseData.windDirection = weatherData['wind']['deg']
+                responseData.cloudPercentage = weatherData['clouds']['all'];
 
-    /* Debug
-    console.log('Receiving a message...')
-    console.dir(req.body)
-    console.log('Request text = \"' + slackData.zip + '\"')
-    console.log('Checking... ' + zipCheck.test(slackData.zip))
-    */
+                botData.attachments.push(
+                {
+                    fallback: '' + request.body.user_name + '\'s weather data for ' + responseData.formattedAddress + ' (' + responseData.cityLat + ', ' + responseData.cityLon + ')',
+                    pretext: '' + request.body.user_name + '\'s weather data for \n' + responseData.formattedAddress + ' (' + responseData.cityLat + ', ' + responseData.cityLon + ')',
+                    title: 'Temp: ' + responseData.currentTemp + '\u00b0F (' + responseData.lowTemp + '\u00b0F / ' + responseData.highTemp + '\u00b0F)',
+                    title_link: 'http://openweathermap.org/city/' + responseData.cityID,
+                    text: ':weather-cloudy: ' + responseData.cloudPercentage + '%  |  :weather-humidity: ' + responseData.humidityPercentage + '%  |  :weather-barometer: ' + responseData.atmosphericPressure + ' hPa\n' + responseData.weatherConditions,
+                    color: '#7CD197'
+                });
 
-    if (!zipCheck.test(slackData.zip)) {
-        console.log('(' + slackData.fullUserName + ') just asked for weather info for INVALID zip code: ' + slackData.zip)
-        console.dir(req.body)
-        res.send('Hi! I am currently hacking you. \nThe value you just sent me is NOT A ZIP CODE: ' + slackData.zip)
-        return 0
-    }
-    /* Debug
-    res.send('Hi! You (' + slackData.fullUserName + ') just asked for weather info in zip code: ' + slackData.zip)
-    */
+                var botPost = https.request(slackPostOptions, function (botResponse) {
+                });
 
-    console.log('(' + slackData.fullUserName + ') just asked for weather info: ')
+                botPost.on('error', function (e) {
+                    console.log('Webhook Post Error: ' + e.message)
+                });
 
-    var geocodeRequest = https.request(geocodePostOptions, function (geocodeResponse) {
-    	geocodeResponse.setEncoding('utf8')
+                botPost.write(JSON.stringify(botData))
+                botPost.end()
 
-    	geocodeResponse.on('data', function (chunk) {
-    		geocodeResponseData += chunk
-    	});
+                break;
+            default:
+                res.send('Unknown error');
+        };
 
-    	geocodeResponse.on('end', function () {
-    		geocodeResponseData = JSON.parse(geocodeResponseData)
-
-    		switch (geocodeResponseData['status'].toString()) {
-    			case 'OK':
-    				geocodeData.formattedAddress = geocodeResponseData['results'][0]['formatted_address'];
-    				console.log('    Geocode Location: ' + geocodeData.formattedAddress)
-    				break;
-    			default:
-    				console.log('    Geocode Data Resposne: ' + geocodeData['status']);
-    				break;
-    		};
-
-
-    		var weatherRequest = http.request(weatherPostOptions, function (weatherResponse) {
-    		    weatherResponse.setEncoding('utf8');
-
-    		    weatherResponse.on('data', function (chunk) {
-    		        weatherPostData += chunk
-    		    });
-
-    		    weatherResponse.on('end', function () {
-    		        weatherPostData = JSON.parse(weatherPostData)
-
-    		        switch (weatherPostData['cod'].toString()) {
-    		            case '404':
-    		                res.send(weatherPostData['message']);
-    		                break;
-    		            case '200':
-    		                weatherData.cityName = weatherPostData['name'];
-    		                weatherData.cityLat = weatherPostData['coord']['lat'];
-    		                weatherData.cityLon = weatherPostData['coord']['lon'];
-    		                weatherData.cityCountry = weatherPostData['sys']['country']
-    		                weatherData.cityID = weatherPostData['id'];
-
-    		                weatherData.weatherConditions = toTitleCase(weatherPostData['weather'][0]['description']);
-    		                weatherData.currentTemp = Math.round(weatherPostData['main']['temp']);
-    		                weatherData.lowTemp = Math.round(weatherPostData['main']['temp_min']);
-    		                weatherData.highTemp = Math.round(weatherPostData['main']['temp_max']);
-    		                weatherData.humidityPercentage = weatherPostData['main']['humidity'];
-
-    		                weatherData.windSpeed = weatherPostData['wind']['speed'];
-    		                weatherData.cloudPercentage = weatherPostData['clouds']['all'];
-
-    		                attachmentVars.push(
-                            {
-                                fallback: '' + slackData.user_name + '\'s weather data for ' + geocodeData.formattedAddress + ' (' + weatherData.cityLat + ', ' + weatherData.cityLon + ')',
-                                pretext: '' + slackData.user_name + '\'s weather data for ' + geocodeData.formattedAddress + ' (' + weatherData.cityLat + ', ' + weatherData.cityLon + ')',
-                                title: 'Temp: ' + weatherData.currentTemp + '\u00b0F (' + weatherData.lowTemp + '\u00b0F / ' + weatherData.highTemp + '\u00b0F)',
-                                title_link: 'http://openweathermap.org/city/' + weatherData.cityID,
-                                text: '' + weatherData.weatherConditions + '\n' + weatherData.cloudPercentage + '% Cloudy (' + weatherData.humidityPercentage + '% Humidity)',
-                                color: '#7CD197'
-                            });
-
-    		                var botPost = https.request(slackPostOptions, function (botResponse) {
-    		                });
-
-    		                botPost.on('error', function (e) {
-    		                    console.log('Webhook Post Error: ' + e.message)
-    		                });
-
-    		                botPost.write(JSON.stringify(botData))
-    		                botPost.end()
-
-    		                break;
-    		            default:
-    		                res.send('Unknown error');
-    		        };
-    		    });
-    		});
-
-    		weatherRequest.on('error', function (e) {
-    		    console.log('Request Error: ' + e.message)
-    		});
-
-    		weatherRequest.end()
-
-        });
     });
-
-    geocodeRequest.on('error', function (e) {
-        console.log('Geocode Request Error: ' + e.message)
-    });
-
-    geocodeRequest.end();
-
-
-
+    response.send('');
 });
 
-app.get('/', function (req, res) {
-    res.send('Get out')
-});
+function convertToTime(unixtime, rawOffset, dstOffset) {
+    unixtime = Number(unixtime)
+    rawOffset = Number(rawOffset)
+    dstOffset = Number(dstOffset)
+    localTime = unixtime + rawOffset + dstOffset
+
+    var date = new Date(localTime * 1000);
+    var meridian;
+    var hour = date.getUTCHours();
+    if (hour > 12) {
+        hour = hour % 12;
+        meridian = 'P';
+    } else if (hour == 12) {
+        meridian = 'P';
+    } else {
+        meridian = 'A';
+    }
+    var min = '0' + date.getUTCMinutes();
+    var sec = '0' + date.getUTCSeconds();
+
+    var mon = date.getUTCMonth() + 1;
+    var day = date.getUTCDate();
+    var yr = date.getUTCFullYear();
+    return '(' + mon + '/' + day + '/' + yr + ') ' + hour + ':' + min.substr(-2) + ':' + sec.substr(-2) + ' ' + meridian + 'M';
+};
 
 function toTitleCase(str) {
     return str.replace(/\w\S*/g, function (txt) { return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase(); });
-};
-
-function convertToTime(unixtime) {
-    var date = new Date(unixtime * 1000);
-    var hour = date.getHours();
-    var min = '0' + date.getMinutes();
-    var sec = '0' + date.getSeconds();
-    return hour + ':' + min.substr(-2) + ':' + sec.substr(-2);
 };

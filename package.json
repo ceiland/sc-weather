@@ -10,7 +10,8 @@
     "express": "~4.9.x",
     "body-parser": "~1.13.x",
     "http": "~0.0.x",
-    "https": "~1.0.x"
+    "https": "~1.0.x",
+    "q": "~1.4.1"
   },
   "engines": {
     "node": "0.12.2"
